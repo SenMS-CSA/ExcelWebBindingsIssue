@@ -1,0 +1,129 @@
+name: Blank snippet
+description: Create a new snippet from a blank template.
+host: EXCEL
+api_set: {}
+script:
+  content: >-
+    $("#setup").on("click", () => tryCatch(setup));
+
+    $("#register-data-changed-handler").on("click", () =>
+    tryCatch(registerDataChangedHandler));
+
+    $("#reload").on("click", () => tryCatch(reload));
+
+
+    async function registerDataChangedHandler() {
+      await Excel.run(async (context) => {
+        const sheet = context.workbook.worksheets.getItem("Sample");
+        const salesTable = sheet.tables.getItem("SalesTable");
+       const salesByQuarterBinding = context.workbook.bindings.add(salesTable.getRange(), "Table", "SalesByQuarter");
+        
+        salesByQuarterBinding.onDataChanged.add(onSalesDataChanged);
+
+        console.log("The data changed handler is registered.");
+
+        await context.sync();
+       // console.log(salesByQuarterBinding.id);
+      });
+      
+    }
+
+
+    async function onSalesDataChanged(eventArgs:
+    Excel.BindingDataChangedEventArgs) {
+      await Excel.run(async (context) => {
+        console.log("Data was changed with binding " + eventArgs.binding.id);
+
+        // Get the name of the table that's changed.
+        const table: Excel.Table = context.workbook.bindings.getItem(eventArgs.binding.id).getTable();
+        table.load("name");
+
+        await context.sync();
+        console.log("Name of the changed table: " + table.name);
+      });
+    }
+
+    async function reload() { 
+      await Excel.run(async (context) =>{
+      const bindings = context.workbook.bindings;
+      bindings.load("items");
+      const getbinding = bindings
+        .getItem('SalesByQuarter');
+    getbinding.load("id"); 
+        getbinding.onDataChanged.add(onSalesDataChanged);
+        getbinding.context.sync();
+      context.sync();
+      console.log("The bindings reloaded");
+      alert("The bindings reloaded");
+      
+    });
+
+    }
+
+
+    async function setup() {
+      await Excel.run(async (context) => {
+        context.workbook.worksheets.getItemOrNullObject("Sample").delete();
+        const sheet = context.workbook.worksheets.add("Sample");
+
+        let salesTable = sheet.tables.add('A1:E1', true);
+        salesTable.name = "SalesTable";
+        salesTable.getHeaderRowRange().values = [["Sales Team", "Qtr1", "Qtr2", "Qtr3", "Qtr4"]];
+
+        salesTable.rows.add(null, [
+          ["London", 500, 700, 654, null],
+          ["Hong Kong", 400, 323, 276, null],
+          ["New York", 1200, 876, 845, null],
+          ["Port-of-Spain", 600, 500, 854, null],
+          ["Nairobi", 5001, 2232, 4763, null]
+        ]);
+
+        salesTable.getRange().format.autofitColumns();
+        salesTable.getRange().format.autofitRows();
+        sheet.activate();
+
+        await context.sync();
+      });
+    }
+
+
+    /** Default helper for invoking an action and handling errors. */
+
+    async function tryCatch(callback) {
+      try {
+        await callback();
+      }
+      catch (error) {
+        // Note: In a production add-in, you'd want to notify the user through your add-in's UI.
+        console.error(error);
+      }
+    }
+  language: typescript
+template:
+  content: "<section class=\"ms-Fabric ms-font-m\">\n\t<p>This sample shows how to register and use a handler for the data-changed event.</p>\n</section>\n\n<section class=\"ms-Fabric setup ms-font-m\">\n\t<h3>Set up</h3>\n\t<button id=\"setup\" class=\"ms-Button\">\n                <span class=\"ms-Button-label\">Create table</span>\n            </button>\n</section>\n\n<section class=\"ms-Fabric samples ms-font-m\">\n\t<h3>Try it out</h3>\n\t<button id=\"register-data-changed-handler\" class=\"ms-Button\">\n                <span class=\"ms-Button-label\">Register data-changed handler</span>\n            </button>\n\n\t<button id=\"reload\" class=\"ms-Button\">\n\t                <span class=\"ms-Button-label\">Reload Bindings</span>\n\t            </button>\n\n</section>"
+  language: html
+style:
+  content: |-
+    section.samples {
+        margin-top: 20px;
+    }
+
+    section.samples .ms-Button, section.setup .ms-Button {
+        display: block;
+        margin-bottom: 5px;
+        margin-left: 20px;
+        min-width: 80px;
+    }
+  language: css
+libraries: |
+  https://appsforoffice.microsoft.com/lib/1/hosted/office.js
+  @types/office-js
+
+  office-ui-fabric-js@1.4.0/dist/css/fabric.min.css
+  office-ui-fabric-js@1.4.0/dist/css/fabric.components.min.css
+
+  core-js@2.4.1/client/core.min.js
+  @types/core-js
+
+  jquery@3.1.1
+  @types/jquery@3.3.1
